@@ -9,6 +9,7 @@ import type {
   WaitForSelectorOptions,
 } from "./page.ts";
 import { retryDeadline } from "./util.ts";
+import { query, queryAll } from "./query.ts";
 
 /** The x and y coordinates of a point. */
 export interface Offset {
@@ -100,19 +101,20 @@ export class ElementHandle {
    * ```
    */
   async $(selector: string): Promise<ElementHandle | null> {
-    const result = await retryDeadline(
-      this.#celestial.DOM.querySelector({
-        nodeId: this.#id,
+    const nodeId = await retryDeadline(
+      query({
+        bindings: this.#celestial,
+        parent: this.#id,
         selector,
       }),
       this.#page.timeout,
     );
 
-    if (!result?.nodeId) {
+    if (!nodeId) {
       return null;
     }
 
-    return new ElementHandle(result.nodeId, this.#celestial, this.#page);
+    return new ElementHandle(nodeId, this.#celestial, this.#page);
   }
 
   /**
@@ -124,19 +126,16 @@ export class ElementHandle {
    * ```
    */
   async $$(selector: string): Promise<ElementHandle[]> {
-    const result = await retryDeadline(
-      this.#celestial.DOM.querySelectorAll({
-        nodeId: this.#id,
+    const nodeIds = await retryDeadline(
+      queryAll({
+        bindings: this.#celestial,
+        parent: this.#id,
         selector,
       }),
       this.#page.timeout,
     );
 
-    if (!result) {
-      return [];
-    }
-
-    return result.nodeIds.map((nodeId) =>
+    return nodeIds.map((nodeId) =>
       new ElementHandle(nodeId, this.#celestial, this.#page)
     );
   }
@@ -335,17 +334,18 @@ export class ElementHandle {
       return await deadline<ElementHandle>(
         (async () => {
           while (true) {
-            const result = await this.#celestial.DOM.querySelector({
-              nodeId: this.#id,
+            const nodeId = await query({
+              bindings: this.#celestial,
+              parent: this.#id,
               selector,
             });
 
-            if (!result?.nodeId) {
+            if (!nodeId) {
               continue;
             }
 
             return new ElementHandle(
-              result.nodeId,
+              nodeId,
               this.#celestial,
               this.#page,
             );
